@@ -38,7 +38,7 @@ npm install
 npm run dev
 ```
 
-## 🔒 Privacy Benefits
+## Privacy Benefits
 - **End-to-End Encryption**: Data is encrypted using the voter's key and re-encrypted for the Arcium MXE.
 - **Zero Knowledge of Inputs**: No single Arcium node can see a voter's choice.
 - **Trustless Enforcement**: The "Reveal" condition is enforced by code, not humans.
