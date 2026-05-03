@@ -35,4 +35,4 @@ We take privacy and security seriously. All contracts in this suite have been au
 *Full Audit Report can be found in the project root.*
 
 ---
-Built with ❤️ for the Arcium Ecosystem.
+Built with 💜 for the Arcium Ecosystem.
