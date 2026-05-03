@@ -1,0 +1,39 @@
+// guardian.arcis
+// The confidential guardian that protects your digital legacy.
+
+use arcium_sdk::prelude::*;
+
+/// The master decryption key for the user's legacy files.
+/// This is stored in Encrypted Shared State (MXE).
+#[derive(ArcisType, Clone)]
+pub struct MasterKey {
+    pub raw_key: [u8; 32],
+}
+
+/// The Arcis circuit that evaluates whether a vault should be unlocked.
+/// This is executed trustlessly by Arcium nodes.
+#[arcis_mxe]
+pub fn evaluate_release(
+    encrypted_key: Enc<Mxe, MasterKey>,
+    last_heartbeat: Public<u64>,
+    grace_period: Public<u64>,
+    current_time: Public<u64>,
+    heir_authority: Public<Pubkey>,
+) -> Enc<Heir, MasterKey> {
+    
+    // Rationale: The circuit verifies the Solana heartbeat data 
+    // against the current network time.
+    
+    let inactivity_duration = *current_time - *last_heartbeat;
+    
+    if inactivity_duration >= *grace_period {
+        // CONDITION MET: The owner has been inactive for longer than the grace period.
+        // We re-encrypt the MasterKey specifically for the 'Heir' authority.
+        // Only the heir will be able to decrypt this result.
+        encrypted_key.reveal_to(*heir_authority)
+    } else {
+        // CONDITION NOT MET: The owner is still active or the period is too short.
+        // We return an empty/zeroed state or abort.
+        panic!("Access Denied: Owner is still active.");
+    }
+}

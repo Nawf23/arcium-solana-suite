@@ -1,0 +1,67 @@
+// tally.arcis
+// This circuit runs inside the Arcium MXE to securely tally DAO votes.
+
+use arcium_sdk::prelude::*;
+
+/// The individual vote structure, kept encrypted throughout the process.
+#[derive(ArcisType, Clone)]
+pub struct Vote {
+    pub choice: i32, // 1 = Yes, -1 = No, 0 = Abstain
+}
+
+/// The final tally result, which will be sent back to Solana.
+#[derive(ArcisType)]
+pub struct TallyResult {
+    pub proposal_id: u64,
+    pub yes_count: i32,
+    pub no_count: i32,
+    pub abstain_count: i32,
+    pub total_votes: i32,
+}
+
+/// The main entry point for the confidential tally.
+/// This function is executed across multiple Arcium nodes using MPC.
+#[arcis_mxe]
+pub fn perform_tally(
+    votes: Vec<Enc<Mxe, Vote>>,
+    proposal_id: Public<u64>,
+    current_time: Public<u64>,
+    end_time: Public<u64>,
+) -> Enc<Mxe, TallyResult> {
+    
+    // SECURITY GUARD: Safety Buffer (10 minutes)
+    // We prevent early reveal even if the Solana clock drifts slightly.
+    const TALLY_SAFETY_BUFFER: u64 = 600; 
+    
+    if *current_time < (*end_time + TALLY_SAFETY_BUFFER) {
+        panic!("Access Denied: Voting period just ended. Please wait for the safety buffer (10m).");
+    }
+
+    let mut yes = 0;
+    let mut no = 0;
+    let mut abstain = 0;
+    let mut total = 0;
+
+    for encrypted_vote in votes {
+        // MXE logic can access the inner value of Enc<Mxe, T> 
+        // because it is running in the multi-party computation environment.
+        let vote = encrypted_vote.reveal_to_mxe();
+        
+        // SECURITY FIX #4: Strict vote validation — reject garbage data
+        match vote.choice {
+            1 => yes += 1,
+            -1 => no += 1,
+            0 => abstain += 1,
+            _ => panic!("Invalid vote value detected. Expected 1, -1, or 0."),
+        }
+        total += 1;
+    }
+
+    Enc::new(TallyResult {
+        proposal_id: *proposal_id,
+        yes_count: yes,
+        no_count: no,
+        abstain_count: abstain,
+        total_votes: total,
+    })
+}
